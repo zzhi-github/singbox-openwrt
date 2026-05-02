@@ -85,7 +85,6 @@ jobs:
           
           git fetch --depth 1 origin tag v24.10.4
           git checkout v24.10.4
-          cat ../kernel_config/configs/feeds.conf >> feeds.conf.default
           cat feeds.conf.default
           ./scripts/feeds update -a
           ## ./scripts/feeds install -a

@@ -55,7 +55,7 @@ jobs:
       - name: Get latest sing-box version
         run: |
           if [ -z "${{ github.event.inputs.tag }}" ]; then
-            TAG=$(curl -s 'https://api.github.com/repos/daeuniverse/dae/releases/latest' | jq -r '.tag_name' | tr -d 'v')
+            TAG=$(curl -s 'https://api.github.com/repos/SagerNet/sing-box/releases/latest' | jq -r '.tag_name' | tr -d 'v')
           else
             TAG="${{ github.event.inputs.tag }}"
           fi
@@ -67,12 +67,7 @@ jobs:
           fi                
           echo "TAG=$TAG" >> $GITHUB_ENV    
 
-          DGST_URL="https://github.com/daeuniverse/dae/releases/download/v$TAG/dae-full-src.zip.dgst"
-          echo "Fetching digest from: $DGST_URL"
-          
-          # 2. Extract the sha256 string (1st column of the sha256 line)
-          # We use -fSL to fail the script if the URL is 404
-          NEW_HASH=$(curl -fSL $DGST_URL | grep 'sha256' | awk '{print $1}')
+          NEW_HASH='5e35f2cc0ad14d3beb1956157fe3f4b3a36787dd115f247c72f2d550d353853b'
           
           if [ -z "$NEW_HASH" ]; then
             echo "Error: Could not extract SHA256 hash."
@@ -80,18 +75,13 @@ jobs:
           fi          
           echo "SB_PKG_HASH=$NEW_HASH" >> $GITHUB_ENV
           
-          
-      - name: Get dae kernel config
-        run: |
-          git clone --depth=1 https://github.com/douglarek/build-openwrt.git kernel_config
-          tree ./kernel_config
-          
       - name: Build
         run: |
           git clone --depth 1 https://github.com/openwrt/openwrt.git
           cd openwrt
           ./scripts/feeds update packages
           cp -r feeds/packages/lang/golang /tmp/golang_backup
+          cp -r feeds/packages/net/sing-box /tmp/sing-box
           
           git fetch --depth 1 origin tag v24.10.4
           git checkout v24.10.4
@@ -103,8 +93,10 @@ jobs:
           echo "Replacing Golang with backed-up version (Go 1.24+)"
           tree feeds/packages/lang/golang
           rm -rf feeds/packages/lang/golang
+          rm -rf feeds/packages/net/sing-box
           tree /tmp/golang_backup
           cp -r /tmp/golang_backup/. feeds/packages/lang/golang/
+          cp -r /tmp/sing-box feeds/packages/net/
           rm -rf tmp
           ./scripts/feeds update -i
           ./scripts/feeds install -a
@@ -114,33 +106,35 @@ jobs:
           grep "VERSION:=" feeds/packages/lang/golang/golang-values.mk 
           
           wget https://downloads.openwrt.org/releases/24.10.4/targets/rockchip/armv8/config.buildinfo -O .config
-          cat ../kernel_config/configs/kernel/*.config >> .config
+          echo "CONFIG_PACKAGE_sing-box=y" >> .config
           sed -i '/dahdi/d' .config
           make defconfig
           cat .config
 
-          tree feeds/custom/net/dae
+          tree feeds/custom/net/sing-box
 
           # Convert TAG to OpenWrt-friendly format
-          sed -i 's/PKG_VERSION:=.*/PKG_VERSION:=${{ env.TAG }}/g' feeds/custom/net/dae/Makefile
-          sed -i 's/^PKG_HASH:=.*/PKG_HASH:=${{ env.DAE_PKG_HASH }}/g' feeds/custom/net/dae/Makefile
-          cat feeds/custom/net/dae/Makefile
+          sed -i 's/PKG_VERSION:=.*/PKG_VERSION:=${{ env.TAG }}/g' feeds/custom/net/sing-box/Makefile
+          sed -i 's/^PKG_HASH:=.*/PKG_HASH:=${{ env.SB_PKG_HASH }}/g' feeds/custom/net/sing-box/Makefile
+          cat feeds/custom/net/sing-box/Makefile
+
+          exit 2
           
           # 1. 确保工具链和内核头文件是最新状态
           make toolchain/install
           make target/linux/compile
           
-          # 2. 编译你的 dae 包
-          make package/feeds/custom/dae/compile V=s
+          # 2. 编译你的 sing-box 包
+          make package/feeds/custom/sing-box/compile V=s
 
-          FN=$(find ./bin -name 'dae_*.ipk' -a ! -name 'dae-geo*' | sort | head -1)
+          FN=$(find ./bin -name 'sing-box*.ipk' | sort | head -1)
           if [ -z "$FN" ]; then
             echo "No IPK found!" && exit 2
           fi
           FN=$(basename "$FN")
           echo "PKG_NAME=$FN" >> $GITHUB_ENV
 
-          cp bin/packages/aarch64_generic/custom/dae*.ipk $GITHUB_WORKSPACE/
+          cp bin/packages/aarch64_generic/custom/sing-box*.ipk $GITHUB_WORKSPACE/
           ## cd -
           ## find sdk/bin/packages -maxdepth 10
 
@@ -149,7 +143,7 @@ jobs:
         with:
           name: ${{ env.PKG_NAME }}
           path: |
-            dae*.ipk
+            sing-box*.ipk
 
       - name: Read release.md and use it as a body of new release
         id: read_release
@@ -166,7 +160,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: dae*.ipk
+          file: sing-box*.ipk
           tag: ${{ env.TAG }}
           file_glob: true
           overwrite: true

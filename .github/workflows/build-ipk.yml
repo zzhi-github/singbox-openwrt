@@ -107,8 +107,6 @@ jobs:
           sed -i 's/PKG_VERSION:=.*/PKG_VERSION:=${{ env.TAG }}/g' feeds/packages/net/sing-box/Makefile
           sed -i 's/^PKG_HASH:=.*/PKG_HASH:=${{ env.SB_PKG_HASH }}/g' feeds/packages/net/sing-box/Makefile
           cat feeds/packages/net/sing-box/Makefile
-
-          exit 2
           
           wget https://downloads.openwrt.org/releases/24.10.4/targets/rockchip/armv8/config.buildinfo -O .config
           echo "CONFIG_PACKAGE_sing-box=y" >> .config

@@ -81,7 +81,6 @@ jobs:
           cd openwrt
           ./scripts/feeds update packages
           cp -r feeds/packages/lang/golang /tmp/golang_backup
-          cp -r feeds/packages/net/sing-box /tmp/sing-box
           
           git fetch --depth 1 origin tag v24.10.4
           git checkout v24.10.4
@@ -92,10 +91,8 @@ jobs:
           echo "Replacing Golang with backed-up version (Go 1.24+)"
           tree feeds/packages/lang/golang
           rm -rf feeds/packages/lang/golang
-          rm -rf feeds/packages/net/sing-box
           tree /tmp/golang_backup
           cp -r /tmp/golang_backup/. feeds/packages/lang/golang/
-          cp -r /tmp/sing-box feeds/custom/net/
           rm -rf tmp
           ./scripts/feeds update -i
           ./scripts/feeds install -a
@@ -103,6 +100,15 @@ jobs:
           echo "Showing default go version after replacement"
           grep "VERSION:=" feeds/packages/lang/golang/golang/Makefile
           grep "VERSION:=" feeds/packages/lang/golang/golang-values.mk 
+
+          tree feeds/packages/net/sing-box
+
+          # Convert TAG to OpenWrt-friendly format
+          sed -i 's/PKG_VERSION:=.*/PKG_VERSION:=${{ env.TAG }}/g' feeds/packages/net/sing-box/Makefile
+          sed -i 's/^PKG_HASH:=.*/PKG_HASH:=${{ env.SB_PKG_HASH }}/g' feeds/packages/net/sing-box/Makefile
+          cat feeds/packages/net/sing-box/Makefile
+
+          exit 2
           
           wget https://downloads.openwrt.org/releases/24.10.4/targets/rockchip/armv8/config.buildinfo -O .config
           echo "CONFIG_PACKAGE_sing-box=y" >> .config
@@ -110,21 +116,13 @@ jobs:
           make defconfig
           cat .config
 
-          tree feeds/custom/net/sing-box
-
-          # Convert TAG to OpenWrt-friendly format
-          sed -i 's/PKG_VERSION:=.*/PKG_VERSION:=${{ env.TAG }}/g' feeds/custom/net/sing-box/Makefile
-          sed -i 's/^PKG_HASH:=.*/PKG_HASH:=${{ env.SB_PKG_HASH }}/g' feeds/custom/net/sing-box/Makefile
-          cat feeds/custom/net/sing-box/Makefile
-
-          exit 2
           
           # 1. 确保工具链和内核头文件是最新状态
           make toolchain/install
           make target/linux/compile
           
           # 2. 编译你的 sing-box 包
-          make package/feeds/custom/sing-box/compile V=s
+          make package/feeds/packages/sing-box/compile V=s
 
           FN=$(find ./bin -name 'sing-box*.ipk' | sort | head -1)
           if [ -z "$FN" ]; then
@@ -133,7 +131,7 @@ jobs:
           FN=$(basename "$FN")
           echo "PKG_NAME=$FN" >> $GITHUB_ENV
 
-          cp bin/packages/aarch64_generic/custom/sing-box*.ipk $GITHUB_WORKSPACE/
+          cp bin/packages/aarch64_generic/packages/sing-box*.ipk $GITHUB_WORKSPACE/
           ## cd -
           ## find sdk/bin/packages -maxdepth 10
 

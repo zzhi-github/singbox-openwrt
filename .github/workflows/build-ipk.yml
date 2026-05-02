@@ -95,7 +95,7 @@ jobs:
           rm -rf feeds/packages/net/sing-box
           tree /tmp/golang_backup
           cp -r /tmp/golang_backup/. feeds/packages/lang/golang/
-          cp -r /tmp/sing-box feeds/packages/net/
+          cp -r /tmp/sing-box feeds/custom/net/
           rm -rf tmp
           ./scripts/feeds update -i
           ./scripts/feeds install -a

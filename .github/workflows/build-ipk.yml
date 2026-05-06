@@ -118,6 +118,16 @@ jobs:
           # 1. 确保工具链和内核头文件是最新状态
           make toolchain/install
           make target/linux/compile
+
+          # Making Go compiler
+          make package/feeds/packages/golang/host/compile V=s
+    
+          # 3. Double check go compiler
+          echo "Go compiler binary..."
+          # OpenWrt 可能会把 binary 命名为 go, go1.24, 或 go1.26
+          tree ./staging_dir/hostpkg/bin
+          ln -sf ../lib/go-1.26/bin/go ./staging_dir/hostpkg/bin/go
+          ./staging_dir/hostpkg/bin/go version
           
           # 2. 编译你的 sing-box 包
           make package/feeds/packages/sing-box/compile V=s
